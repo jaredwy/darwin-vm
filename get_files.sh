@@ -1,6 +1,28 @@
 #!/bin/bash
 set -euo pipefail
 
+# macOS 27 deprecated `hdiutil attach`; `diskutil image` replaces it but exists
+# only on macOS 26+. Prefer it when present, fall back to hdiutil otherwise.
+# Drop the hdiutil fallback once macOS < 26 is no longer supported.
+use_diskutil_image() {  # true on macOS 26+, where the `diskutil image` verb exists
+    local major
+    major="$(sw_vers -productVersion 2>/dev/null | cut -d. -f1)"
+    [[ "${major}" =~ ^[0-9]+$ ]] && (( major >= 26 ))
+}
+
+dmg_attach() { # owners(on|off) mountpoint image
+    if use_diskutil_image; then
+        local mo=owners; [[ "$1" == off ]] && mo=noowners
+        diskutil image attach "$3" --mountOptions "$mo" --mountPoint "$2"
+    else
+        hdiutil attach -owners "$1" -mountpoint "$2" "$3"
+    fi
+}
+
+dmg_detach() { # mountpoint
+    if use_diskutil_image; then diskutil eject "$1"; else hdiutil detach "$1"; fi
+}
+
 # Default device: iPhone 16 on iOS 27.0 (24A437)
 # I picked iPhone 16 as the default instead of iPhone 17, as it doesn't have MTE and therefore runs faster.
 # (note that iPhone 16's device name is confusingly "iPhone17,3")
@@ -165,13 +187,13 @@ patch_ramdisk() {
 
     # mount with -owners off to perform complicated FS ops without root, later
     # we can chown everything to root.
-    if ! hdiutil attach -owners off -mountpoint "${livemount}" "${ramdisk}"; then
+    if ! dmg_attach off "${livemount}" "${ramdisk}"; then
         rmdir "${livemount}"
         die "mount failed"
     fi
 
     echo "mounted ${ramdisk} on ${livemount}"
-    trap 'hdiutil detach ${livemount}; rmdir ${livemount}' EXIT
+    trap 'dmg_detach "${livemount}"; rmdir "${livemount}"' EXIT
 
     if [[ -d "${livemount}/System/Library/LaunchDaemons.old" ]]; then
         echo "already patched"

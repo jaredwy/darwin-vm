@@ -322,9 +322,9 @@ codesign -s - hello
 
 ```
 mkdir mnt
-hdiutil attach -owners on -mountpoint mnt firmware/ramdisk.dmg
+diskutil image attach firmware/ramdisk.dmg --mountOptions owners --mountPoint mnt
 sudo cp hello mnt/bin/hello
-hdiutil detach mnt
+diskutil eject mnt
 rmdir mnt
 ```
 
@@ -503,7 +503,7 @@ You can modify the entire filesystem this way. Mount the ramdisk with:
 
 ```
 mkdir mnt
-hdiutil attach -owners on -mountpoint mnt firmware/ramdisk.dmg
+diskutil image attach firmware/ramdisk.dmg --mountOptions owners --mountPoint mnt
 ```
 
 The `mnt` folder now contains the contents of the ramdisk. You can modify it
@@ -516,7 +516,7 @@ reject them.
 When you're done, unmount the disk image:
 
 ```
-hdiutil detach mnt
+diskutil eject mnt
 rmdir mnt
 ```
 
